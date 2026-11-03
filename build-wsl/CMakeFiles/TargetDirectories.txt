@@ -1,0 +1,6 @@
+/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/CMakeFiles/server.dir
+/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/CMakeFiles/client.dir
+/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/CMakeFiles/parser_test.dir
+/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/CMakeFiles/test.dir
+/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/CMakeFiles/edit_cache.dir
+/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/CMakeFiles/rebuild_cache.dir

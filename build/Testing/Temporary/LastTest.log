@@ -1,0 +1,19 @@
+Start testing: Oct 21 12:07 IST
+----------------------------------------------------------
+1/1 Testing: ParserTests
+1/1 Test: ParserTests
+Command: "/mnt/c/Users/yashg/Desktop/HTTP/build/parser_test"
+Directory: /mnt/c/Users/yashg/Desktop/HTTP/build
+"ParserTests" start time: Oct 21 12:07 IST
+Output:
+----------------------------------------------------------
+All parser tests passed
+<end of output>
+Test time =   0.02 sec
+----------------------------------------------------------
+Test Passed.
+"ParserTests" end time: Oct 21 12:07 IST
+"ParserTests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 21 12:07 IST

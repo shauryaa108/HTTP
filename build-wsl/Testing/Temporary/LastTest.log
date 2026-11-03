@@ -1,0 +1,19 @@
+Start testing: Oct 28 23:57 IST
+----------------------------------------------------------
+1/1 Testing: ParserTests
+1/1 Test: ParserTests
+Command: "/mnt/c/Users/yashg/Desktop/HTTP/build-wsl/parser_test"
+Directory: /mnt/c/Users/yashg/Desktop/HTTP/build-wsl
+"ParserTests" start time: Oct 28 23:57 IST
+Output:
+----------------------------------------------------------
+All parser tests passed
+<end of output>
+Test time =   0.01 sec
+----------------------------------------------------------
+Test Passed.
+"ParserTests" end time: Oct 28 23:57 IST
+"ParserTests" time elapsed: 00:00:00
+----------------------------------------------------------
+
+End testing: Oct 28 23:57 IST
