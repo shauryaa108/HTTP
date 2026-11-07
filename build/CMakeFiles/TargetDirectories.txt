@@ -1,6 +1,0 @@
-/mnt/c/Users/yashg/Desktop/HTTP/build/CMakeFiles/server.dir
-/mnt/c/Users/yashg/Desktop/HTTP/build/CMakeFiles/client.dir
-/mnt/c/Users/yashg/Desktop/HTTP/build/CMakeFiles/parser_test.dir
-/mnt/c/Users/yashg/Desktop/HTTP/build/CMakeFiles/test.dir
-/mnt/c/Users/yashg/Desktop/HTTP/build/CMakeFiles/edit_cache.dir
-/mnt/c/Users/yashg/Desktop/HTTP/build/CMakeFiles/rebuild_cache.dir

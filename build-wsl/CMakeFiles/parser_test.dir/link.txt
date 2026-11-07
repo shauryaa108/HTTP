@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/parser_test.dir/tests/parser_test.cpp.o CMakeFiles/parser_test.dir/src/http/HttpParser.cpp.o CMakeFiles/parser_test.dir/src/http/HttpRequest.cpp.o -o parser_test 
