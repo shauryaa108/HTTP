@@ -14,6 +14,7 @@
 
 using namespace std;
 
+
 Server::Server()
     : serverSocket(-1) {
 }
@@ -97,6 +98,8 @@ bool Server::start(int port) {
     return true;
 }
 
+// here i have implemented the timeout function as far as i was able to understand
+struct timeval timeout{5,0};
 void Server::run() {
     while (true) {
         int clientSocket = accept(
@@ -109,9 +112,18 @@ void Server::run() {
             cerr << "accept failed\n";
             continue;
         }
-
+        setsockopt(
+            clientSocket,
+            SOL_SOCKET,
+            SO_RCVTIMEO,
+            &timeout,
+            sizeof(timeout)
+        );
         handleClient(clientSocket);
-
+        // here we are closing the socket connection manually
+        // here we need to make this resource release encapsulated in a struct or similar structure to make the cleanup efficient
+        // now my doubt here is how do i encapsulate this stuff right here, from accept to this function we have a lifecycle going on
+        // in order to encapsulate it, we need to encapsulate the whole life cycle i guess
         close(clientSocket);
     }
 }
@@ -208,6 +220,9 @@ void Server::handleClient(int clientSocket) {
 
         size_t totalSent = 0;
 
+        // in case of 400 and 500 status code we only have one send call which is not very consistent with the while function we just wrote down
+        // also i have a doubt in understanding how i am gonna improve this section to make it consistent like in case of single send it is still gonna end
+        // if we want more than one send as th requests will be incomplete we need to make sure for 400 and 500 we use the correct no. of send() to finish the request
         while (totalSent < data.size()) {
             ssize_t sent = send(
                 clientSocket,
