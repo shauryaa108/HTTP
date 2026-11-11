@@ -28,4 +28,5 @@ public:
     static HttpResponse notFound();
     static HttpResponse methodNotAllowed();
     static HttpResponse internalServerError();
+    static HttpResponse requestTimeout();
 };

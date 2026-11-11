@@ -7,7 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_executable(server
     src/main.cpp
+
     src/server/server.cpp
+    src/server/ClientConnection.cpp
+
     src/http/HttpParser.cpp
     src/http/HttpRequest.cpp
     src/http/HttpResponse.cpp

@@ -105,3 +105,12 @@ HttpResponse HttpResponse::internalServerError() {
 
     return response;
 }
+HttpResponse HttpResponse::requestTimeout() {
+    HttpResponse response;
+
+    response.setStatus(408, "Request Timeout");
+    response.setHeader("Content-Type", "text/plain");
+    response.setBody("408 Request Timeout\n");
+
+    return response;
+}

@@ -1,4 +1,7 @@
+
 #include "server.h"
+
+#include "ClientConnection.h"
 
 #include "../http/HttpParser.h"
 #include "../http/HttpResponse.h"
@@ -7,20 +10,26 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <filesystem>
 
 #include <iostream>
-#include <string>
+#include <cstring>
+#include <cerrno>
 
 using namespace std;
-
 
 Server::Server()
     : serverSocket(-1) {
 }
 
+Server::~Server() {
+    if (serverSocket >= 0) {
+        ::close(serverSocket);
+        serverSocket = -1;
+    }
+}
+
 bool Server::start(int port) {
-    addrinfo hints{}, *result;
+    addrinfo hints{}, *result = nullptr;
 
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
@@ -36,7 +45,8 @@ bool Server::start(int port) {
     );
 
     if (status != 0) {
-        cerr << "getaddrinfo failed\n";
+        cerr << "getaddrinfo failed: "
+             << gai_strerror(status) << "\n";
         return false;
     }
 
@@ -44,19 +54,19 @@ bool Server::start(int port) {
          current != nullptr;
          current = current->ai_next) {
 
-        serverSocket = socket(
+        int listeningFd = socket(
             current->ai_family,
             current->ai_socktype,
             current->ai_protocol
         );
 
-        if (serverSocket == -1)
+        if (listeningFd == -1)
             continue;
 
         int yes = 1;
 
         setsockopt(
-            serverSocket,
+            listeningFd,
             SOL_SOCKET,
             SO_REUSEADDR,
             &yes,
@@ -64,15 +74,16 @@ bool Server::start(int port) {
         );
 
         if (bind(
-            serverSocket,
+            listeningFd,
             current->ai_addr,
             current->ai_addrlen
         ) == 0) {
+
+            serverSocket = listeningFd;
             break;
         }
 
-        close(serverSocket);
-        serverSocket = -1;
+        ::close(listeningFd);
     }
 
     freeaddrinfo(result);
@@ -83,111 +94,131 @@ bool Server::start(int port) {
     }
 
     if (listen(serverSocket, 10) == -1) {
-        cerr << "listen failed\n";
+        cerr << "listen failed: "
+             << strerror(errno) << "\n";
 
-        close(serverSocket);
+        ::close(serverSocket);
         serverSocket = -1;
 
         return false;
     }
 
     cout << "Server listening on port "
-         << port
-         << "\n";
+         << port << "\n";
 
     return true;
 }
 
-// here i have implemented the timeout function as far as i was able to understand
-struct timeval timeout{5,0};
 void Server::run() {
+
     while (true) {
-        int clientSocket = accept(
+
+        int acceptedFd = accept(
             serverSocket,
             nullptr,
             nullptr
         );
 
-        if (clientSocket == -1) {
-            cerr << "accept failed\n";
+        if (acceptedFd == -1) {
+
+            if (errno == EINTR)
+                continue;
+
+            cerr << "accept failed: "
+                 << strerror(errno) << "\n";
+
             continue;
         }
-        setsockopt(
-            clientSocket,
-            SOL_SOCKET,
-            SO_RCVTIMEO,
-            &timeout,
-            sizeof(timeout)
-        );
-        handleClient(clientSocket);
-        // here we are closing the socket connection manually
-        // here we need to make this resource release encapsulated in a struct or similar structure to make the cleanup efficient
-        // now my doubt here is how do i encapsulate this stuff right here, from accept to this function we have a lifecycle going on
-        // in order to encapsulate it, we need to encapsulate the whole life cycle i guess
-        close(clientSocket);
+
+        // Ownership of acceptedFd transfers to client.
+        ClientConnection client(acceptedFd);
+
+        if (!client.setReadTimeout(20, 0)) {
+            cerr << "Failed to configure receive timeout\n";
+            continue;
+        }
+
+        handleClient(client);
+
+        // ClientConnection destructor closes acceptedFd.
     }
 }
 
-void Server::handleClient(int clientSocket) {
+void Server::handleClient(ClientConnection& client) {
+
     HttpParser parser;
 
     char buffer[4096];
 
     while (true) {
-        ssize_t bytesRead = recv(
-            clientSocket,
+
+        ssize_t bytesRead = client.receive(
             buffer,
-            sizeof(buffer),
-            0
+            sizeof(buffer)
         );
 
-        if (bytesRead == 0)
+        // Client disconnected gracefully.
+        if (bytesRead == 0) {
+            cout << "Client disconnected\n";
             return;
+        }
 
+        // Handle receive errors.
         if (bytesRead < 0) {
-            HttpResponse response =
-                HttpResponse::internalServerError();
 
-            string data = response.toString();
+            // Receive timeout.
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
 
-            send(
-                clientSocket,
-                data.c_str(),
-                data.size(),
-                0
-            );
+                cerr << "Client request timed out\n";
+
+                HttpResponse response =
+                    HttpResponse::requestTimeout();
+
+                client.sendAll(response.toString());
+
+                return;
+            }
+
+            // Interrupted system call.
+            if (errno == EINTR) {
+                continue;
+            }
+
+            // Actual socket error.
+            cerr << "recv failed: "
+                 << strerror(errno) << "\n";
 
             return;
         }
 
+        // Feed received data into the parser.
         ParseResult result = parser.feed(
-            string(buffer, bytesRead)
+            string(buffer, static_cast<size_t>(bytesRead))
         );
 
-        if (result == ParseResult::Incomplete)
+        // Request is incomplete. Wait for more data.
+        if (result == ParseResult::Incomplete) {
             continue;
+        }
 
+        // Malformed HTTP request.
         if (result == ParseResult::BadRequest) {
+
             HttpResponse response =
                 HttpResponse::badRequest();
 
-            string data = response.toString();
-
-            send(
-                clientSocket,
-                data.c_str(),
-                data.size(),
-                0
-            );
+            client.sendAll(response.toString());
 
             return;
         }
 
+        // Request is complete.
         const HttpRequest& request =
             parser.getRequest();
 
         HttpResponse response;
 
+        // Method validation.
         if (request.method != "GET" &&
             request.method != "HEAD" &&
             request.method != "POST") {
@@ -195,46 +226,43 @@ void Server::handleClient(int clientSocket) {
             response =
                 HttpResponse::methodNotAllowed();
         }
+
+        // Route handling.
         else if (request.target == "/hello") {
 
             if (request.method == "POST") {
+
                 response = HttpResponse::ok(
-                    "POST received: " +
-                    request.body
+                    "POST received: " + request.body
                 );
-            }
-            else {
+
+            } else {
+
                 response = HttpResponse::ok(
                     "Hello from the HTTP server!\n"
                 );
             }
         }
+
+        // Unknown route.
         else {
+
             response =
                 HttpResponse::notFound();
         }
 
-        string data = response.toString(
+        // HEAD must not include a response body.
+        string responseData = response.toString(
             request.method == "HEAD"
         );
 
-        size_t totalSent = 0;
+        // Send the complete response.
+        if (!client.sendAll(responseData)) {
 
-        // in case of 400 and 500 status code we only have one send call which is not very consistent with the while function we just wrote down
-        // also i have a doubt in understanding how i am gonna improve this section to make it consistent like in case of single send it is still gonna end
-        // if we want more than one send as th requests will be incomplete we need to make sure for 400 and 500 we use the correct no. of send() to finish the request
-        while (totalSent < data.size()) {
-            ssize_t sent = send(
-                clientSocket,
-                data.c_str() + totalSent,
-                data.size() - totalSent,
-                0
-            );
+            cerr << "Failed to send response: "
+                 << strerror(errno) << "\n";
 
-            if (sent <= 0)
-                return;
-
-            totalSent += sent;
+            return;
         }
 
         return;
